@@ -116,8 +116,13 @@ public class ServersAdapter extends RecyclerView.Adapter<ServersAdapter.ViewHold
         holder.popupMenu.updateServer(server);
     }
 
+    /**
+     * Load servers from database
+     *
+     * Delegate call to yaaic instance
+     */
     public void loadServers() {
-        this.servers = Yaaic.getInstance().getServers();
+        servers = Yaaic.getInstance().getServersAsArrayList();
         notifyDataSetChanged();
     }
 

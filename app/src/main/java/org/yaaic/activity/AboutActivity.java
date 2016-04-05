@@ -35,6 +35,8 @@ import org.yaaic.R;
  * "About" dialog activity.
  */
 public class AboutActivity extends Activity {
+    private static final String TAG = "Yaaic/AboutActivity";
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);

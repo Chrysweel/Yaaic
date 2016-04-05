@@ -35,7 +35,6 @@ import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
-import android.util.SparseArray;
 
 /**
  * Database Helper for the servers and channels tables
@@ -334,9 +333,9 @@ public class Database extends SQLiteOpenHelper
      * 
      * @return
      */
-    public SparseArray<Server> getServers()
+    public HashMap<Integer, Server> getServers()
     {
-        SparseArray<Server> servers = new SparseArray<Server>();
+        HashMap<Integer, Server> servers = new HashMap<Integer, Server>();
 
         Cursor cursor = this.getReadableDatabase().query(
             ServerConstants.TABLE_NAME,

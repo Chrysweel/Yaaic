@@ -22,14 +22,12 @@ package org.yaaic;
 
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Set;
 
 import org.yaaic.db.Database;
 import org.yaaic.model.Server;
 
 import android.content.Context;
-import android.util.SparseArray;
 
 /**
  * Global Master Class :)
@@ -38,17 +36,17 @@ import android.util.SparseArray;
  */
 public class Yaaic
 {
-    private static Yaaic instance;
+    public static Yaaic              instance;
 
-    private SparseArray<Server> servers;
-    private boolean serversLoaded = false;
+    private HashMap<Integer, Server> servers;
+    private boolean                  serversLoaded = false;
 
     /**
      * Private constructor, you may want to use static getInstance()
      */
     private Yaaic()
     {
-        servers = new SparseArray<Server>();
+        servers = new HashMap<Integer, Server>();
     }
 
     /**
@@ -63,6 +61,7 @@ public class Yaaic
             servers = db.getServers();
             db.close();
 
+            // context.sendBroadcast(new Intent(Broadcast.SERVER_UPDATE));
             serversLoaded = true;
         }
     }
@@ -106,7 +105,9 @@ public class Yaaic
      */
     public void addServer(Server server)
     {
-        servers.put(server.getId(), server);
+        if (!servers.containsKey(server.getId())) {
+            servers.put(server.getId(), server);
+        }
     }
 
     /**
@@ -122,14 +123,15 @@ public class Yaaic
      * 
      * @return list of servers
      */
-    public List<Server> getServers()
+    public ArrayList<Server> getServersAsArrayList()
     {
-        List<Server> servers = new ArrayList<>(this.servers.size());
+        ArrayList<Server> serverList = new ArrayList<Server>();
 
-        for (int i = 0; i < this.servers.size(); i++) {
-            servers.add(this.servers.valueAt(i));
+        Set<Integer> mKeys = servers.keySet();
+        for (int key : mKeys) {
+            serverList.add(servers.get(key));
         }
 
-        return servers;
+        return serverList;
     }
 }

@@ -21,21 +21,18 @@ along with Yaaic.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.yaaic.irc;
 
-import android.app.AlarmManager;
-import android.app.Notification;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.app.Service;
-import android.content.Intent;
-import android.content.IntentFilter;
-import android.os.SystemClock;
-import android.support.v4.app.NotificationCompat;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 import org.jibble.pircbot.IrcException;
 import org.jibble.pircbot.NickAlreadyInUseException;
 import org.yaaic.R;
 import org.yaaic.Yaaic;
 import org.yaaic.activity.MainActivity;
+import org.yaaic.db.Database;
 import org.yaaic.model.Broadcast;
 import org.yaaic.model.Conversation;
 import org.yaaic.model.Message;
@@ -45,12 +42,14 @@ import org.yaaic.model.Settings;
 import org.yaaic.model.Status;
 import org.yaaic.receiver.ReconnectReceiver;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
+import android.app.AlarmManager;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.app.Service;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.SystemClock;
 
 /**
  * The background service for managing the irc connections
@@ -59,6 +58,9 @@ import java.util.List;
  */
 public class IRCService extends Service
 {
+
+    private Intent notifyExternalIntent;
+
     public static final String ACTION_FOREGROUND = "org.yaaic.service.foreground";
     public static final String ACTION_BACKGROUND = "org.yaaic.service.background";
     public static final String ACTION_ACK_NEW_MENTIONS = "org.yaaic.service.ack_new_mentions";
@@ -110,6 +112,7 @@ public class IRCService extends Service
         this.alarmIntents = new HashMap<Integer, PendingIntent>();
         this.alarmReceivers = new HashMap<Integer, ReconnectReceiver>();
         this.alarmIntentsLock = new Object();
+
     }
 
     /**
@@ -119,6 +122,10 @@ public class IRCService extends Service
     public void onCreate()
     {
         super.onCreate();
+
+        Intent notifyIntent = new Intent(this, MainActivity.class);
+        notifyIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        setNotifyIntent(notifyIntent);
 
         settings = new Settings(getBaseContext());
         notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
@@ -178,6 +185,14 @@ public class IRCService extends Service
     }
 
 
+    public Intent getNotifyIntent(){
+        return notifyExternalIntent;
+    }
+    public void setNotifyIntent(Intent intent){
+        notifyExternalIntent = intent;
+    }
+
+
     /**
      * Handle command
      *
@@ -191,24 +206,17 @@ public class IRCService extends Service
             }
             foreground = true;
 
-
             // Set the icon, scrolling text and timestamp
             notification = new Notification(R.drawable.ic_notification, getText(R.string.notification_running), System.currentTimeMillis());
 
             // The PendingIntent to launch our activity if the user selects this notification
-            Intent notifyIntent = new Intent(this, MainActivity.class);
-            notifyIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+//            Intent notifyIntent = new Intent(this, MainActivity.class);
+            Intent notifyIntent = getNotifyIntent();
+//            notifyIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notifyIntent, 0);
 
-            notification = new NotificationCompat.Builder(this)
-                    .setSmallIcon(R.drawable.ic_notification)
-                    .setContentTitle(getText(R.string.app_name))
-                    .setContentText(getText(R.string.notification_not_connected))
-                    .setWhen(System.currentTimeMillis())
-                    .setContentIntent(contentIntent)
-                    .setPriority(NotificationCompat.PRIORITY_MIN)
-                    .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-                    .build();
+            // Set the info for the views that show in the notification panel.
+            notification.setLatestEventInfo(this, getText(R.string.app_name), getText(R.string.notification_not_connected), contentIntent);
 
             startForegroundCompat(FOREGROUND_NOTIFICATION, notification);
         } else if (ACTION_BACKGROUND.equals(intent.getAction()) && !foreground) {
@@ -230,8 +238,10 @@ public class IRCService extends Service
     private void updateNotification(String text, String contentText, boolean vibrate, boolean sound, boolean light)
     {
         if (foreground) {
-            Intent notifyIntent = new Intent(this, MainActivity.class);
-            notifyIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            notification = new Notification(R.drawable.ic_notification, text, System.currentTimeMillis());
+           // Intent notifyIntent = new Intent(this, MainActivity.class);
+            Intent notifyIntent = getNotifyIntent();
+//            notifyIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             PendingIntent contentIntent = PendingIntent.getActivity(this, 0, notifyIntent, 0);
 
             if (contentText == null) {
@@ -252,15 +262,7 @@ public class IRCService extends Service
                 }
             }
 
-            notification = new NotificationCompat.Builder(this)
-                    .setSmallIcon(R.drawable.ic_notification)
-                    .setContentTitle(getText(R.string.app_name))
-                    .setContentText(contentText)
-                    .setContentIntent(contentIntent)
-                    .setWhen(System.currentTimeMillis())
-                    .setPriority(mentions.size() > 0 ? NotificationCompat.PRIORITY_DEFAULT : NotificationCompat.PRIORITY_MIN)
-                    .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-                    .build();
+            notification.setLatestEventInfo(this, getText(R.string.app_name), contentText, contentIntent);
 
             if (vibrate) {
                 notification.defaults |= Notification.DEFAULT_VIBRATE;
@@ -571,9 +573,12 @@ public class IRCService extends Service
     public void checkServiceStatus()
     {
         boolean shutDown = true;
-        List<Server> servers = Yaaic.getInstance().getServers();
+        ArrayList<Server> mServers = Yaaic.getInstance().getServersAsArrayList();
+        int mSize = mServers.size();
+        Server server;
 
-        for (final Server server : servers) {
+        for (int i = 0; i < mSize; i++) {
+            server = mServers.get(i);
             if (server.isDisconnected() && !server.mayReconnect()) {
                 int serverId = server.getId();
                 synchronized(this) {

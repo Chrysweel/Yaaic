@@ -23,6 +23,7 @@ package org.yaaic.fragment;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Fragment;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -33,8 +34,7 @@ import android.content.res.Configuration;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
-import android.support.design.widget.Snackbar;
-import android.support.v4.app.Fragment;
+import android.speech.RecognizerIntent;
 import android.support.v4.view.ViewPager;
 import android.support.v7.widget.Toolbar;
 import android.text.InputType;
@@ -119,7 +119,7 @@ public class ConversationFragment extends Fragment implements ServerListener, Co
     //      channel name in onActivityResult() and run the join command in onResume().
     private String joinChannelBuffer;
 
-    private Snackbar snackbar;
+    private boolean reconnectDialogActive = false;
 
     private final View.OnKeyListener inputKeyListener = new View.OnKeyListener() {
         /**
@@ -170,14 +170,14 @@ public class ConversationFragment extends Fragment implements ServerListener, Co
     }
 
     @Override
-    public void onAttach(Context context) {
-        super.onAttach(context);
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
 
-        if (!(context instanceof YaaicActivity)) {
+        if (!(activity instanceof YaaicActivity)) {
             throw new IllegalArgumentException("Activity has to implement YaaicActivity interface");
         }
 
-        this.activity = (YaaicActivity) context;
+        this.activity = (YaaicActivity) activity;
     }
 
     /**
@@ -419,24 +419,16 @@ public class ConversationFragment extends Fragment implements ServerListener, Co
     }
 
     @Override
-    public void onPrepareOptionsMenu(Menu menu) {
-        super.onPrepareOptionsMenu(menu);
-
-        Conversation conversation = pagerAdapter.getItem(pager.getCurrentItem());
-        menu.findItem(R.id.notify).setChecked(conversation.shouldAlwaysNotify());
-    }
-
-    @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        switch (item.getItemId()) {
-            case R.id.disconnect:
-                server.setStatus(Status.DISCONNECTED);
-                server.setMayReconnect(false);
-                binder.getService().getConnection(serverId).quitServer();
-                server.clearConversations();
-                break;
+        int id = item.getItemId();
+        if(id == R.id.disconnect) {
+            server.setStatus(Status.DISCONNECTED);
+            server.setMayReconnect(false);
+            binder.getService().getConnection(serverId).quitServer();
+            server.clearConversations();
+        }else {
 
-            case R.id.close:
+            if(id == R.id.close) {
                 Conversation conversationToClose = pagerAdapter.getItem(pager.getCurrentItem());
                 // Make sure we part a channel when closing the channel conversation
                 if (conversationToClose.getType() == Conversation.TYPE_CHANNEL) {
@@ -448,33 +440,79 @@ public class ConversationFragment extends Fragment implements ServerListener, Co
                 } else {
                     Toast.makeText(getActivity(), getResources().getString(R.string.close_server_window), Toast.LENGTH_SHORT).show();
                 }
-                break;
-
-            case R.id.join:
-                startActivityForResult(new Intent(getActivity(), JoinActivity.class), REQUEST_CODE_JOIN);
-                break;
-
-            case R.id.users:
-                Conversation conversationForUserList = pagerAdapter.getItem(pager.getCurrentItem());
-                if (conversationForUserList.getType() == Conversation.TYPE_CHANNEL) {
-                    Intent intent = new Intent(getActivity(), UsersActivity.class);
-                    intent.putExtra(
-                            Extra.USERS,
-                            binder.getService().getConnection(server.getId()).getUsersAsStringArray(
-                                    conversationForUserList.getName()
-                            )
-                    );
-                    startActivityForResult(intent, REQUEST_CODE_USERS);
+            }else {
+                if(id == R.id.join) {
+                    startActivityForResult(new Intent(getActivity(), JoinActivity.class), REQUEST_CODE_JOIN);
                 } else {
-                    Toast.makeText(getActivity(), getResources().getString(R.string.only_usable_from_channel), Toast.LENGTH_SHORT).show();
-                }
-                break;
+                    if(id == R.id.users) {
+                        Conversation conversationForUserList = pagerAdapter.getItem(pager.getCurrentItem());
+                        if (conversationForUserList.getType() == Conversation.TYPE_CHANNEL) {
+                            Intent intent = new Intent(getActivity(), UsersActivity.class);
+                            intent.putExtra(
+                                    Extra.USERS,
+                                    binder.getService().getConnection(server.getId()).getUsersAsStringArray(
+                                            conversationForUserList.getName()
+                                    )
+                            );
+                            startActivityForResult(intent, REQUEST_CODE_USERS);
+                        } else {
+                            Toast.makeText(getActivity(), getResources().getString(R.string.only_usable_from_channel), Toast.LENGTH_SHORT).show();
+                        }
 
-            case R.id.notify:
-                Conversation conversationForNotify = pagerAdapter.getItem(pager.getCurrentItem());
-                conversationForNotify.setAlwaysNotify(!item.isChecked());
-                break;
+                    } else {
+
+                    }
+                }
+
+
+            }
+
+
         }
+
+
+//        switch (item.getItemId()) {
+//            case R.id.disconnect:
+//                server.setStatus(Status.DISCONNECTED);
+//                server.setMayReconnect(false);
+//                binder.getService().getConnection(serverId).quitServer();
+//                server.clearConversations();
+//                break;
+//
+//            case R.id.close:
+//                Conversation conversationToClose = pagerAdapter.getItem(pager.getCurrentItem());
+//                // Make sure we part a channel when closing the channel conversation
+//                if (conversationToClose.getType() == Conversation.TYPE_CHANNEL) {
+//                    binder.getService().getConnection(serverId).partChannel(conversationToClose.getName());
+//                }
+//                else if (conversationToClose.getType() == Conversation.TYPE_QUERY) {
+//                    server.removeConversation(conversationToClose.getName());
+//                    onRemoveConversation(conversationToClose.getName());
+//                } else {
+//                    Toast.makeText(getActivity(), getResources().getString(R.string.close_server_window), Toast.LENGTH_SHORT).show();
+//                }
+//                break;
+//
+//            case R.id.join:
+//                startActivityForResult(new Intent(getActivity(), JoinActivity.class), REQUEST_CODE_JOIN);
+//                break;
+//
+//            case R.id.users:
+//                Conversation conversationForUserList = pagerAdapter.getItem(pager.getCurrentItem());
+//                if (conversationForUserList.getType() == Conversation.TYPE_CHANNEL) {
+//                    Intent intent = new Intent(getActivity(), UsersActivity.class);
+//                    intent.putExtra(
+//                            Extra.USERS,
+//                            binder.getService().getConnection(server.getId()).getUsersAsStringArray(
+//                                    conversationForUserList.getName()
+//                            )
+//                    );
+//                    startActivityForResult(intent, REQUEST_CODE_USERS);
+//                } else {
+//                    Toast.makeText(getActivity(), getResources().getString(R.string.only_usable_from_channel), Toast.LENGTH_SHORT).show();
+//                }
+//                break;
+//        }
 
         return true;
     }
@@ -588,32 +626,36 @@ public class ConversationFragment extends Fragment implements ServerListener, Co
                 return;
             }
 
-            if (!binder.getService().getSettings().isReconnectEnabled()) {
-                if (snackbar == null) {
-                    snackbar = Snackbar.make(pager,
-                            getString(R.string.disconnect_info, server.getTitle()),
-                            Snackbar.LENGTH_INDEFINITE
-                    );
-
-                    snackbar.setAction(R.string.action_reconnect, new View.OnClickListener() {
-                        @Override
-                        public void onClick(View v) {
-                            if (!server.isDisconnected()) {
-                                return;
+            if (!binder.getService().getSettings().isReconnectEnabled() && !reconnectDialogActive) {
+                reconnectDialogActive = true;
+                AlertDialog.Builder builder = new AlertDialog.Builder(getActivity());
+                builder.setMessage(getResources().getString(R.string.reconnect_after_disconnect, server.getTitle()))
+                        .setCancelable(false)
+                        .setPositiveButton("Yes", new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int id) {
+                                if (!server.isDisconnected()) {
+                                    reconnectDialogActive = false;
+                                    return;
+                                }
+                                binder.getService().getConnection(server.getId()).setAutojoinChannels(
+                                        server.getCurrentChannelNames()
+                                );
+                                server.setStatus(Status.CONNECTING);
+                                binder.connect(server);
+                                reconnectDialogActive = false;
                             }
-
-                            binder.getService().getConnection(server.getId()).setAutojoinChannels(
-                                    server.getCurrentChannelNames()
-                            );
-                            server.setStatus(Status.CONNECTING);
-                            binder.connect(server);
-                        }
-                    });
-                }
-
-                if (!snackbar.isShown()) {
-                    snackbar.show();
-                }
+                        })
+                        .setNegativeButton(getString(R.string.negative_button), new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int id) {
+                                server.setMayReconnect(false);
+                                reconnectDialogActive = false;
+                                dialog.cancel();
+                            }
+                        });
+                AlertDialog alert = builder.create();
+                alert.show();
             }
         }
     }

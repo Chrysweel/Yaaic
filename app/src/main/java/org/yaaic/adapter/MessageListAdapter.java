@@ -39,25 +39,34 @@ import android.widget.TextView;
  */
 public class MessageListAdapter extends BaseAdapter
 {
-    private final LinkedList<Message> messages;
+    private final LinkedList<TextView> messages;
     private final Context context;
     private int historySize;
 
     /**
-     * Create a new MessageAdapter.
+     * Create a new MessageAdapter
+     * 
+     * @param channel
+     * @param context
      */
     public MessageListAdapter(Conversation conversation, Context context)
     {
-        LinkedList<Message> messages = new LinkedList<Message>();
+        LinkedList<TextView> messages = new LinkedList<TextView>();
 
         // Render channel name as first message in channel
         if (conversation.getType() != Conversation.TYPE_SERVER) {
             Message header = new Message(conversation.getName());
             header.setColor(Message.COLOR_RED);
-            messages.add(header);
+            messages.add(header.renderTextView(context));
         }
 
-        messages.addAll(conversation.getHistory());
+        // Optimization - cache field lookups
+        LinkedList<Message> mHistory =  conversation.getHistory();
+        int mSize = mHistory.size();
+
+        for (int i = 0; i < mSize; i++) {
+            messages.add(mHistory.get(i).renderTextView(context));
+        }
 
         // XXX: We don't want to clear the buffer, we want to add only
         //      buffered messages that are not already added (history)
@@ -75,7 +84,7 @@ public class MessageListAdapter extends BaseAdapter
      */
     public void addMessage(Message message)
     {
-        messages.add(message);
+        messages.add(message.renderTextView(context));
 
         if (messages.size() > historySize) {
             messages.remove(0);
@@ -91,10 +100,16 @@ public class MessageListAdapter extends BaseAdapter
      */
     public void addBulkMessages(LinkedList<Message> messages)
     {
-        this.messages.addAll(messages);
+        LinkedList<TextView> mMessages = this.messages;
+        Context mContext = this.context;
+        int mSize = messages.size();
 
-        while (messages.size() > historySize) {
-            messages.remove(0);
+        for (int i = mSize - 1; i > -1; i--) {
+            mMessages.add(messages.get(i).renderTextView(mContext));
+
+            if (mMessages.size() > historySize) {
+                mMessages.remove(0);
+            }
         }
 
         notifyDataSetChanged();
@@ -118,7 +133,7 @@ public class MessageListAdapter extends BaseAdapter
      * @return
      */
     @Override
-    public Message getItem(int position)
+    public TextView getItem(int position)
     {
         return messages.get(position);
     }
@@ -146,7 +161,7 @@ public class MessageListAdapter extends BaseAdapter
     @Override
     public View getView(int position, View convertView, ViewGroup parent)
     {
-        return getItem(position).renderTextView(context, (TextView) convertView);
+        return getItem(position);
     }
 
     /**

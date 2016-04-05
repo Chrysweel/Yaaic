@@ -20,8 +20,16 @@ along with Yaaic.  If not, see <http://www.gnu.org/licenses/>.
  */
 package org.yaaic.model;
 
+import java.util.Date;
+
+import org.yaaic.utils.MircColors;
+import org.yaaic.utils.Smilies;
+
+import android.annotation.TargetApi;
 import android.content.Context;
+import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
+import android.os.Build;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.TextUtils;
@@ -30,11 +38,6 @@ import android.text.style.ImageSpan;
 import android.text.util.Linkify;
 import android.widget.TextView;
 
-import org.yaaic.utils.Emojis;
-import org.yaaic.utils.MircColors;
-
-import java.util.Date;
-
 /**
  * A channel or server message
  *
@@ -42,12 +45,12 @@ import java.util.Date;
  */
 public class Message
 {
-    public static final int COLOR_GREEN   = 0xFF4caf50;
-    public static final int COLOR_RED     = 0xFFf44336;
-    public static final int COLOR_BLUE    = 0xFF3f51b5;
-    public static final int COLOR_YELLOW  = 0xFFffc107;
-    public static final int COLOR_GREY    = 0xFF607d8b;
-    public static final int COLOR_DEFAULT = 0xFF212121;
+    public static final int COLOR_GREEN   = 0xFF458509;
+    public static final int COLOR_RED     = 0xFFcc0000;
+    public static final int COLOR_BLUE    = 0xFF729fcf;
+    public static final int COLOR_YELLOW  = 0xFFbe9b01;
+    public static final int COLOR_GREY    = 0xFFaaaaaa;
+    public static final int COLOR_DEFAULT = 0xFFeeeeee;
 
     /* normal message, this is the default */
     public static final int TYPE_MESSAGE = 0;
@@ -57,24 +60,23 @@ public class Message
 
     /* Some are light versions because dark colors hardly readable on
      * Yaaic's dark background */
-    private static final int[] colors = {
-            0xFFf44336, // Red
-            0xFFe91e63, // Pink
-            0xFF9c27b0, // Purple
-            0xFF673ab7, // Deep Purple
-            0xFF3f51b5, // Indigo
-            0xFF2196f3, // Blue
-            0xFF03a9f4, // Light Blue
-            0xFF00bcd4, // Cyan
-            0xFF009688, // Teal
-            0xFF4caf50, // Green
-            0xFF8bc34a, // Light green
-            0xFFcddc39, // Lime
-            0xFFffeb3b, // Yellow
-            0xFFffc107, // Amber
-            0xFFff9800, // Orange
-            0xFFff5722, // Deep Orange
-            0xFF795548, // Brown
+    public static final int[] colors = {
+        0xFFffffff, // White
+        0xFFffff00, // Yellow
+        0xFFff00ff, // Fuchsia
+        0xFFff0000, // Red
+        0xFFc0c0c0, // Silver
+        0xFF808080, // Gray
+        0xFF808000, // Olive
+        0xFFC040C0, // Light Purple
+        0xFFC04040, // Light Maroon
+        0xFF00ffff, // Agua
+        0xFF80ff80, // Light Lime
+        0xFF008080, // Teal
+        0xFF008000, // Green
+        0xFF8484FF, // Light Blue
+        0xFF6060D0, // Light Navy
+        0xFF000000, // Black
     };
 
     public static final int NO_ICON  = -1;
@@ -235,14 +237,16 @@ public class Message
             canvas = new SpannableString(prefix + timestamp + nick);
             SpannableString renderedText;
 
-            String text = settings.showGraphicalSmilies() ? Emojis.convert(this.text) : this.text;
-
             if (settings.showMircColors()) {
                 renderedText = MircColors.toSpannable(text);
             } else {
                 renderedText = new SpannableString(
                     MircColors.removeStyleAndColors(text)
                 );
+            }
+
+            if (settings.showGraphicalSmilies()) {
+                renderedText = Smilies.toSpannable(renderedText, context);
             }
 
             canvas = new SpannableString(TextUtils.concat(canvas, renderedText));
@@ -315,19 +319,26 @@ public class Message
      * @param context
      * @return
      */
-    public TextView renderTextView(Context context, TextView view)
+    public TextView renderTextView(Context context)
     {
-        if (view == null) {
-            view = new TextView(context);
+        TextView canvas = new TextView(context);
+
+        canvas.setAutoLinkMask(Linkify.ALL);
+        canvas.setLinksClickable(true);
+        canvas.setLinkTextColor(COLOR_BLUE);
+
+        canvas.setText(this.render(context));
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
+            setupViewForHoneycombAndLater(canvas);
         }
 
-        view.setAutoLinkMask(Linkify.ALL);
-        view.setLinksClickable(true);
-        view.setLinkTextColor(COLOR_BLUE);
-        view.setText(this.render(context));
-        view.setTextIsSelectable(true);
+        return canvas;
+    }
 
-        return view;
+    @TargetApi(11)
+    private void setupViewForHoneycombAndLater(TextView canvas) {
+        canvas.setTextIsSelectable(true);
     }
 
     /**

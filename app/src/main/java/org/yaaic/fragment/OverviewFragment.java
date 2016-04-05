@@ -21,13 +21,13 @@ along with Yaaic.  If not, see <http://www.gnu.org/licenses/>.
 package org.yaaic.fragment;
 
 import android.app.Activity;
+import android.app.Fragment;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
@@ -61,14 +61,21 @@ public class OverviewFragment extends Fragment implements ServerListener, Server
     private BroadcastReceiver receiver;
 
     @Override
-    public void onAttach(Context context) {
-        super.onAttach(context);
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
 
-        if (!(context instanceof YaaicActivity)) {
+        if (!(activity instanceof YaaicActivity)) {
             throw new IllegalArgumentException("Activity has to implement YaaicActivity interface");
         }
 
-        this.activity = (YaaicActivity) context;
+        this.activity = (YaaicActivity) activity;
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+
+        activity.setToolbarTitle(getString(R.string.app_name));
     }
 
     @Nullable
@@ -91,8 +98,6 @@ public class OverviewFragment extends Fragment implements ServerListener, Server
     @Override
     public void onResume() {
         super.onResume();
-
-        activity.setToolbarTitle(getString(R.string.app_name));
 
         receiver = new ServerReceiver(this);
         getActivity().registerReceiver(receiver, new IntentFilter(Broadcast.SERVER_UPDATE));
@@ -167,10 +172,7 @@ public class OverviewFragment extends Fragment implements ServerListener, Server
             db.close();
 
             Yaaic.getInstance().removeServerById(server.getId());
-
-            getActivity().sendBroadcast(
-                    Broadcast.createServerIntent(Broadcast.SERVER_UPDATE, server.getId())
-            );
+            adapter.loadServers();
         }
     }
 

@@ -296,7 +296,7 @@ public class IRCConnection extends PircBot
         }
 
         boolean mentioned = isMentioned(action);
-        if (mentioned || target.equals(this.getNick()) || conversation.shouldAlwaysNotify()) {
+        if (mentioned || target.equals(this.getNick())) {
             if (conversation.getStatus() != Conversation.STATUS_SELECTED || !server.getIsForeground()) {
                 service.addNewMention(
                     server.getId(),
@@ -472,14 +472,9 @@ public class IRCConnection extends PircBot
         Message message = new Message(text, sender);
         Conversation conversation = server.getConversation(target);
 
-        boolean isMentioned = isMentioned(text);
-
-        if (isMentioned) {
+        if (isMentioned(text)) {
             // highlight
             message.setColor(Message.COLOR_RED);
-        }
-
-        if (isMentioned || conversation.shouldAlwaysNotify()) {
             if (conversation.getStatus() != Conversation.STATUS_SELECTED || !server.getIsForeground()) {
                 service.addNewMention(
                     server.getId(),
